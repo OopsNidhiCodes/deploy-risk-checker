@@ -1,128 +1,256 @@
 # 🚀 Deploy Risk Checker
 
-Deploy Risk Checker is a Visual Studio Code extension that analyzes software projects for deployment risks before deployment or code push.
+Deploy Risk Checker is a **Visual Studio Code extension** that analyzes Python projects for deployment risks **before deployment or code push**.
 
-The extension scans your project, identifies common deployment issues, and generates an easy-to-read report inside VS Code.
+The extension performs static analysis on your project, identifies common deployment and security issues, and presents the findings in an interactive dashboard directly inside VS Code.
 
 ---
 
-## ✨ Features
+# ✨ Features
 
-- 🔍 Detects project type (Python, Node.js)
-- 📦 Checks dependency manifests
+- 🔍 Detects Python projects automatically
+- 📦 Validates Python dependency manifests
 - 🌱 Detects missing `.env` files
 - 📄 Detects missing `.env.example`
-- 📊 Displays findings in a clean dashboard inside VS Code
+- 🔐 Detects hardcoded secrets in source code
+- 🛡️ Detects vulnerable Python dependencies using `pip-audit`
+- 📍 Reports exact file paths and line numbers
+- 📊 Displays findings in an interactive VS Code dashboard
 - ⚡ Fast Python-based analysis engine
 
 ---
 
-## 🏗️ Architecture
+# 🏗️ Architecture
 
 ```
-                VS Code Extension
-                        │
-                        ▼
-                 Analyze Project
-                        │
-                        ▼
-                Python CLI Engine
-                        │
-        ┌───────────────┼───────────────┐
-        ▼               ▼               ▼
- Dependency       Environment      Future
-  Analyzer         Analyzer       Analyzers
-                        │
-                        ▼
-                 JSON Findings
-                        │
-                        ▼
-              VS Code Dashboard
+                   VS Code
+                      │
+                      │
+        Analyze Project Command
+                      │
+                      ▼
+           extension/src/extension.ts
+                      │
+                      │ Executes
+                      ▼
+               engine/cli.py
+                      │
+     ┌────────────────┼────────────────┐
+     │                │                │
+     ▼                ▼                ▼
+dependency.py   env_checker.py   secret_scanner.py
+                      │
+                      ▼
+             vulnerability.py
+                      │
+                      ▼
+          List of Finding Objects
+                      │
+                      ▼
+               JSON Response
+                      │
+                      ▼
+             VS Code WebView UI
 ```
 
 ---
 
-## 📂 Project Structure
+# 📂 Project Structure
 
 ```
 deploy-risk-checker/
 
+│
 ├── docs/
+│   ├── MILESTONE_1.md
+│   ├── MILESTONE_2.md
+│   └── MILESTONE_3.md
+│
 ├── engine/
+│   │
 │   ├── analyzers/
+│   │   ├── dependency.py
+│   │   ├── env_checker.py
+│   │   ├── secret_scanner.py
+│   │   └── vulnerability.py
+│   │
 │   ├── models/
-│   ├── parsers/
+│   │   └── finding.py
+│   │
 │   ├── cli.py
 │   └── requirements.txt
 │
 ├── extension/
+│   │
 │   ├── src/
-│   ├── dist/
+│   │   └── extension.ts
+│   │
 │   ├── package.json
 │   └── tsconfig.json
 │
-├── tests/
-└── README.md
+├── README.md
+└── LICENSE
 ```
 
 ---
 
-## ✅ Current Features
+## 📚 Documentation
 
-- Dependency Analyzer
-- Environment Analyzer
-- VS Code Dashboard
-- JSON-based Analysis Engine
+Detailed development progress is available in:
+
+- docs/MILESTONE_1.md
+- docs/MILESTONE_2.md
+- docs/MILESTONE_3.md
+
+
+# ✅ Current Features
+
+## Dependency Analyzer
+
+Checks Python dependency manifests.
+
+Supported:
+
+- `requirements.txt`
+- `pyproject.toml`
 
 ---
 
-## 🚧 Upcoming Features
+## Environment Analyzer
 
-- Secret Scanner
-- Runtime Checker
-- Vulnerability Scanner
-- Docker Analyzer
-- Git Ignore Analyzer
-- Risk Score Calculation
-- HTML/PDF Report Export
-- GitHub Integration
-- Pre-Push Git Hook
+Detects deployment configuration issues.
+
+Checks for:
+
+- Missing `.env`
+- Missing `.env.example`
+- Python environment variable usage
 
 ---
 
-## 🛠️ Tech Stack
+## Secret Scanner
 
-### VS Code Extension
+Detects hardcoded secrets including:
+
+- AWS Access Keys
+- AWS Secret Keys
+- GitHub Tokens
+- Generic API Keys
+- Password assignments
+- JWT Tokens
+- Private Keys
+
+Also checks whether:
+
+- `.env` is excluded from `.gitignore`
+
+Reports:
+
+- File path
+- Line number
+
+---
+
+## Vulnerability Scanner
+
+Uses **pip-audit** to identify vulnerable Python packages.
+
+Reports:
+
+- Vulnerable package
+- Installed version
+- Vulnerability ID
+- Recommended fixed version
+
+---
+
+## VS Code Dashboard
+
+Displays:
+
+- Overall Risk
+- Total Findings
+- High Findings
+- Medium Findings
+- Low Findings
+- File Locations
+- Line Numbers
+- Recommendations
+
+---
+
+# 🛠️ Tech Stack
+
+## VS Code Extension
 
 - TypeScript
 - VS Code Extension API
 
-### Analysis Engine
+## Analysis Engine
 
-- Python 3
+- Python 3.10+
+- pip-audit
 - JSON
 - Child Process Communication
 
 ---
 
-## 🚀 Getting Started
+# 🚀 Getting Started
 
-### Clone the repository
+## Clone the Repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/deploy-risk-checker.git
+git clone https://github.com/OopsNidhiCodes/deploy-risk-checker.git
 ```
 
-### Install extension dependencies
+---
+
+## Install Extension Dependencies
 
 ```bash
 cd extension
 npm install
 ```
 
-### Run the extension
+---
+
+## Create Python Virtual Environment
 
 ```bash
+cd ../engine
+
+python -m venv venv
+```
+
+Activate it.
+
+### Windows
+
+```bash
+venv\Scripts\activate
+```
+
+### Linux/macOS
+
+```bash
+source venv/bin/activate
+```
+
+---
+
+## Install Python Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+## Run the Extension
+
+```bash
+cd ../extension
+
 npm run watch
 ```
 
@@ -130,31 +258,39 @@ Press **F5** to launch the Extension Development Host.
 
 ---
 
-## 📸 Screenshots
+# 📸 Screenshots
 
 Coming Soon...
 
 ---
 
-## 📌 Roadmap
+# 📈 Project Progress
 
-- [x] Milestone 1 – VS Code Extension Setup
-- [x] Milestone 2 – Dependency & Environment Analysis
-- [ ] Secret Scanner
-- [ ] Runtime Checker
-- [ ] Vulnerability Scanner
-- [ ] Deployment Risk Score
-- [ ] GitHub Integration
-- [ ] Marketplace Release
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Feel free to open issues or submit pull requests.
+| Milestone | Status |
+|-----------|--------|
+| Milestone 1 – VS Code Extension Setup | ✅ Completed |
+| Milestone 2 – Dependency & Environment Analysis | ✅ Completed |
+| Milestone 3 – Security & Vulnerability Analysis | ✅ Completed |
+| Milestone 4 – AI Risk Analysis | 🚧 Planned |
+| Milestone 5 – Intelligent Deployment Recommendations | 🚧 Planned |
 
 ---
 
-## 📄 License
+# 🗺️ Future Roadmap
+
+Planned features include:
+
+- Docker Analyzer
+- Git Ignore Analyzer
+- Deployment Risk Score
+- AI-powered Risk Analysis
+- HTML/PDF Report Export
+- GitHub Integration
+- Pre-Push Git Hook
+- Marketplace Release
+
+---
+
+# 📄 License
 
 This project is licensed under the MIT License.

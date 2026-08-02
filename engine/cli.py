@@ -3,6 +3,7 @@ import json
 
 from analyzers import dependency
 from analyzers import env_checker
+from analyzers import secret_scanner, vulnerability
 
 def detect_project_type(path):
     import os
@@ -14,9 +15,6 @@ def detect_project_type(path):
         or os.path.exists(os.path.join(path, "pyproject.toml"))
     ):
         types.append("python")
-
-    if os.path.exists(os.path.join(path, "package.json")):
-        types.append("node")
 
     return types
 
@@ -43,6 +41,8 @@ def main():
     findings = []
     findings.extend(dependency.analyze(project_path))
     findings.extend(env_checker.analyze(project_path))
+    findings.extend(secret_scanner.analyze(project_path))
+    findings.extend(vulnerability.analyze(project_path))
     result = {
         "project_types": detect_project_type(project_path),
         "python_dependencies": parse_requirements(project_path),

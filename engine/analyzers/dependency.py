@@ -9,9 +9,6 @@ def analyze(project_path: str):
 
     manifests = [
         "requirements.txt",
-        "package.json",
-        "pom.xml",
-        "build.gradle",
         "pyproject.toml"
     ]
 
@@ -31,7 +28,7 @@ def analyze(project_path: str):
                 severity="High",
                 title="Dependency Manifest Missing",
                 description="No dependency manifest file was found in the project.",
-                recommendation="Add requirements.txt, package.json, pyproject.toml, pom.xml or build.gradle."
+                recommendation="Add a requirements.txt or pyproject.toml file to define your Python dependencies."
             )
 
         )

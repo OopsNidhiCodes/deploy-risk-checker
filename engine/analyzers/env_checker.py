@@ -1,7 +1,14 @@
 from pathlib import Path
 from models.finding import Finding
 
-
+IGNORED_DIRS = {
+    ".git",
+    "__pycache__",
+    "venv",
+    ".venv",
+    "node_modules",
+    "dist",
+}
 def analyze(project_path: str):
     findings = []
 
@@ -15,21 +22,29 @@ def analyze(project_path: str):
     patterns = [
         "os.getenv",
         "load_dotenv",
-        "dotenv",
-        "process.env"
+        "dotenv"
     ]
 
     for file in project.rglob("*"):
-        if file.is_file() and file.suffix in [".py", ".js", ".ts"]:
-            try:
-                content = file.read_text(encoding="utf-8")
 
-                if any(pattern in content for pattern in patterns):
-                    uses_env = True
-                    break
+        if any(part in IGNORED_DIRS for part in file.parts):
+            continue
 
-            except Exception:
-                continue
+        if not file.is_file():
+            continue
+
+        if file.suffix != ".py":
+            continue
+
+        try:
+            content = file.read_text(encoding="utf-8")
+
+            if any(pattern in content for pattern in patterns):
+                uses_env = True
+                break
+
+        except Exception:
+            continue
 
     if uses_env and not env_exists:
         findings.append(
