@@ -37,18 +37,6 @@ SECRET_PATTERNS = [
 ]
 
 
-def redact_secret(secret: str) -> str:
-    """
-    Redacts a secret before displaying it.
-    Example:
-    sk-1234567890abcdef -> sk-12************
-    """
-    if len(secret) <= 6:
-        return "*" * len(secret)
-
-    return secret[:6] + "*" * (len(secret) - 6)
-
-
 def is_env_ignored(project: Path) -> bool:
     """
     Checks whether .env is listed in .gitignore.

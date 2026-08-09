@@ -39,5 +39,5 @@ The extension then displays the results inside a WebView dashboard.
 - Detect deployment risks automatically.
 - Help developers fix issues before deployment.
 - Provide actionable recommendations.
-- Support multiple programming languages.
+- Focus on Python deployment and security analysis.
 - Offer a lightweight and extensible architecture.

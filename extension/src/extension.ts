@@ -89,8 +89,21 @@ function resolvePythonInterpreter(context: vscode.ExtensionContext): string {
     }
 
     // Fallback if no venv is found (e.g. fresh clone before setup).
-    // pip-audit and other deps must be installed globally for this path to work.
+    // pip-audit and other dependencies must be installed globally.
+    if (process.platform !== "win32") {
+        return "python3";
+    }
+
     return "python";
+}
+
+function escapeHtml(value: unknown): string {
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 function getWebviewContent(result: any): string {
@@ -127,19 +140,19 @@ function getWebviewContent(result: any): string {
                 ${badge} ${finding.severity}
             </div>
 
-            <h2>${finding.title}</h2>
+            <h2>${escapeHtml(finding.title)}</h2>
 
-            <p>${finding.description}</p>
+            <p>${escapeHtml(finding.description)}</p>
 
             ${finding.file_path
                 ? `
                 <p>
                     <strong>Location:</strong>
-                    ${finding.file_path}
+                    ${escapeHtml(finding.file_path)}
                     ${finding.line_number
-                        ? `(Line ${finding.line_number})`
-                        : ""
-                    }
+                    ? `(Line ${escapeHtml(finding.line_number)})`
+                    : ""
+                }
                 </p>
                 `
                 : ""
@@ -149,7 +162,7 @@ function getWebviewContent(result: any): string {
 
                 <strong>Recommendation</strong>
 
-                <p>${finding.recommendation}</p>
+                <p>${escapeHtml(finding.recommendation)}</p>
 
             </div>
 
@@ -225,7 +238,9 @@ body{
 
 <h1>🚀 Deploy Risk Checker</h1>
 
-<p><strong>Project Type:</strong> ${result.project_types.join(", ") || "Unknown"}</p>
+<p><strong>Project Type:</strong> ${escapeHtml(
+        result.project_types.join(", ") || "Unknown"
+    )}</p>
 
 <p><strong>Overall Risk:</strong> ${overallRisk}</p>
 
