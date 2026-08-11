@@ -122,6 +122,8 @@ function getWebviewContent(result: any): string {
         overallRisk = "MEDIUM";
     }
 
+    const aiEnabled = Boolean(result.ai_enabled);
+
     let cards = "";
 
     findings.forEach((finding: any) => {
@@ -133,11 +135,17 @@ function getWebviewContent(result: any): string {
                     ? "🟡"
                     : "🟢";
 
+        const hasPriority = typeof finding.priority === "number";
+
         cards += `
         <div class="card">
 
             <div class="severity">
                 ${badge} ${finding.severity}
+                ${hasPriority
+                ? `<span class="priority-badge">Priority #${escapeHtml(finding.priority)}</span>`
+                : ""
+            }
             </div>
 
             <h2>${escapeHtml(finding.title)}</h2>
@@ -165,6 +173,25 @@ function getWebviewContent(result: any): string {
                 <p>${escapeHtml(finding.recommendation)}</p>
 
             </div>
+
+            ${finding.ai_explanation
+                ? `
+                <div class="ai-insight">
+                    <strong>🤖 Why this matters</strong>
+                    <p>${escapeHtml(finding.ai_explanation)}</p>
+                    ${finding.ai_remediation
+                    ? `
+                        <p class="ai-remediation">
+                            <strong>AI-suggested fix:</strong>
+                            ${escapeHtml(finding.ai_remediation)}
+                        </p>
+                        `
+                    : ""
+                }
+                </div>
+                `
+                : ""
+            }
 
         </div>
         `;
@@ -219,6 +246,18 @@ body{
 .severity{
     font-size:18px;
     font-weight:bold;
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+
+.priority-badge{
+    font-size:12px;
+    font-weight:normal;
+    background:#9b59b6;
+    color:white;
+    padding:3px 10px;
+    border-radius:12px;
 }
 
 .recommendation{
@@ -226,6 +265,31 @@ body{
     padding:10px;
     background:#333;
     border-radius:8px;
+}
+
+.ai-summary{
+    background:#2d2b40;
+    border-left:6px solid #9b59b6;
+    padding:18px 20px;
+    border-radius:10px;
+    margin-bottom:25px;
+}
+
+.ai-summary h2{
+    margin-top:0;
+    font-size:16px;
+}
+
+.ai-insight{
+    margin-top:15px;
+    padding:12px 15px;
+    background:#2d2b40;
+    border-left:4px solid #9b59b6;
+    border-radius:8px;
+}
+
+.ai-remediation{
+    margin-top:8px;
 }
 
 </style>
@@ -269,6 +333,20 @@ body{
 </div>
 
 </div>
+
+${aiEnabled
+            ? `
+    <div class="ai-summary">
+        <h2>🤖 AI Risk Summary</h2>
+        <p>${escapeHtml(result.ai_summary)}</p>
+        ${result.ai_coverage && result.ai_coverage !== `${findings.length}/${findings.length}`
+                ? `<p style="opacity:0.7; font-size:13px;">AI reasoning covered ${escapeHtml(result.ai_coverage)} findings.</p>`
+                : ""
+            }
+    </div>
+    `
+            : ""
+        }
 
 ${cards}
 

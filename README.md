@@ -1,92 +1,235 @@
 # 🚀 Deploy Risk Checker
 
-Deploy Risk Checker is a **Visual Studio Code extension** that analyzes Python projects for deployment risks **before deployment or code push**.
+Deploy Risk Checker is a **Visual Studio Code extension** that analyzes Python projects for deployment, configuration, security, dependency, and vulnerability risks before deployment or code push.
 
-The extension performs static analysis on your project, identifies common deployment and security issues, and presents the findings in an interactive dashboard directly inside VS Code.
+It combines a deterministic Python analysis engine with an optional **LLM reasoning layer** that prioritizes detected risks, explains their impact in plain English, and provides improved remediation guidance.
 
----
-
-# ✨ Features
-
-- 🔍 Detects Python projects automatically
-- 📦 Validates Python dependency manifests
-- 🌱 Detects missing `.env` files
-- 📄 Detects missing `.env.example`
-- 🔐 Detects hardcoded secrets in source code
-- 🛡️ Detects vulnerable Python dependencies using `pip-audit`
-- 📍 Reports exact file paths and line numbers
-- 📊 Displays findings in an interactive VS Code dashboard
-- ⚡ Fast Python-based analysis engine
+The LLM does **not** perform detection. Deterministic analyzers remain the source of truth for all detected risks.
 
 ---
 
-# 🏗️ Architecture
+## ✨ Features
 
+### 🔍 Deterministic Risk Analysis
+
+The Python analysis engine currently provides four analyzers:
+
+* **Dependency Analyzer**
+
+  * Detects missing Python dependency manifests.
+  * Supports `requirements.txt`.
+  * Supports `pyproject.toml`.
+
+* **Environment Analyzer**
+
+  * Detects missing `.env` files when environment variables are used.
+  * Detects missing `.env.example`.
+  * Detects insecure environment configuration.
+
+* **Secret Scanner**
+
+  * Detects possible AWS access keys.
+  * Detects AWS secret keys.
+  * Detects GitHub tokens.
+  * Detects generic API keys.
+  * Detects password, secret, and token assignments.
+  * Detects JWT-shaped tokens.
+  * Detects private key headers.
+  * Detects `.env` files that are not protected by `.gitignore`.
+
+* **Vulnerability Scanner**
+
+  * Uses `pip-audit`.
+  * Scans Python dependency manifests.
+  * Reports known vulnerabilities.
+  * Reports vulnerability IDs and available fixed versions.
+  * Handles scanner failures and timeouts safely.
+
+---
+
+## 🤖 LLM Reasoning Layer
+
+Milestone 4 adds an optional LLM reasoning layer on top of the deterministic findings.
+
+The LLM is responsible for:
+
+* Prioritizing existing findings.
+* Explaining why a finding matters.
+* Providing clearer remediation guidance.
+* Producing an overall risk summary.
+
+The LLM is **not allowed to invent findings**.
+
+The architecture follows this boundary:
+
+```text
+Project
+   ↓
+Deterministic Analyzers
+   ↓
+Findings JSON
+   ↓
+LLM Reasoning Layer
+   ↓
+Prioritized Findings
++ Explanations
++ Remediation
++ Risk Summary
+   ↓
+VS Code Dashboard
 ```
-                   VS Code
-                      │
-                      │
-        Analyze Project Command
-                      │
-                      ▼
-           extension/src/extension.ts
-                      │
-                      │ Executes
-                      ▼
-               engine/cli.py
-                      │
-     ┌────────────────┼────────────────┐
-     │                │                │
-     ▼                ▼                ▼
-dependency.py   env_checker.py   secret_scanner.py
-                      │
-                      ▼
-             vulnerability.py
-                      │
-                      ▼
-          List of Finding Objects
-                      │
-                      ▼
-               JSON Response
-                      │
-                      ▼
-             VS Code WebView UI
+
+If the LLM is unavailable, the deterministic analysis continues to work normally.
+
+---
+
+## 🧠 AI Safety Boundary
+
+The deterministic engine remains the source of truth.
+
+The reasoning layer receives existing findings and uses their IDs to correlate its response back to the original findings.
+
+Unknown IDs returned by the LLM are ignored.
+
+This prevents the reasoning layer from silently introducing new security findings that were never detected by the deterministic analyzers.
+
+Finding IDs are also required to be unique so that multiple findings can be correctly correlated with their AI-generated reasoning.
+
+---
+
+## 🛡️ Graceful Failure
+
+The extension is designed to remain usable even when the LLM cannot be reached.
+
+The reasoning layer handles:
+
+* Missing API keys.
+* API failures.
+* Permission errors.
+* Rate limits.
+* Timeouts.
+* Malformed responses.
+* Invalid structured output.
+* Unknown finding IDs.
+* Partial AI coverage.
+
+When reasoning fails, the system falls back to deterministic findings instead of crashing the analysis engine.
+
+---
+
+## 📊 Dashboard
+
+The VS Code dashboard displays:
+
+* Project type.
+* Overall risk.
+* Total findings.
+* High / Medium / Low severity counts.
+* Finding descriptions.
+* Source file locations.
+* Line numbers.
+* Recommendations.
+* AI priority.
+* AI explanation.
+* AI remediation.
+* Overall AI-generated risk summary when available.
+
+The dashboard also distinguishes between deterministic-only and AI-enhanced analysis.
+
+---
+
+## 🏗️ Architecture
+
+```text
+                    VS Code
+                       │
+                       ▼
+              Analyze Project Command
+                       │
+                       ▼
+              extension/src/extension.ts
+                       │
+                       ▼
+                  engine/cli.py
+                       │
+        ┌──────────────┼──────────────┐
+        ▼              ▼              ▼
+ Dependency       Environment     Secret Scanner
+ Analyzer          Analyzer            │
+        │              │               │
+        └──────────────┼───────────────┘
+                       │
+                       ▼
+              Vulnerability Scanner
+                       │
+                       ▼
+                 Finding Objects
+                       │
+                       ▼
+                 Findings JSON
+                       │
+                       ▼
+              LLM Reasoning Layer
+                       │
+              ┌────────┴────────┐
+              ▼                 ▼
+        AI Available       AI Unavailable
+              │                 │
+              ▼                 ▼
+       Prioritization      Deterministic
+       Explanation          Findings
+       Remediation              │
+              │                 │
+              └────────┬────────┘
+                       ▼
+                VS Code WebView
+                    Dashboard
 ```
 
 ---
 
-# 📂 Project Structure
+## 📁 Project Structure
 
-```
+```text
 deploy-risk-checker/
-
 │
 ├── docs/
 │   ├── MILESTONE_1.md
 │   ├── MILESTONE_2.md
-│   └── MILESTONE_3.md
+│   ├── MILESTONE_3.md
+│   └── MILESTONE_4.md
 │
 ├── engine/
-│   │
 │   ├── analyzers/
 │   │   ├── dependency.py
 │   │   ├── env_checker.py
 │   │   ├── secret_scanner.py
-│   │   └── vulnerability.py
+│   │   ├── vulnerability.py
+│   │   └── runtime_checker.py
 │   │
 │   ├── models/
 │   │   └── finding.py
+│   │
+│   ├── reasoning/
+│   │   ├── llm_client.py
+│   │   ├── prompt_builder.py
+│   │   ├── reasoner.py
+│   │   └── schema.py
 │   │
 │   ├── cli.py
 │   └── requirements.txt
 │
 ├── extension/
-│   │
 │   ├── src/
 │   │   └── extension.ts
-│   │
 │   ├── package.json
 │   └── tsconfig.json
+│
+├── tests/
+│   ├── test_finding.py
+│   ├── test_secret_scanner.py
+│   ├── test_vulnerability.py
+│   └── test_reasoner.py
 │
 ├── README.md
 └── LICENSE
@@ -94,203 +237,201 @@ deploy-risk-checker/
 
 ---
 
-## 📚 Documentation
+## ⚙️ Requirements
 
-Detailed development progress is available in:
+* Visual Studio Code
+* Node.js
+* npm
+* Python 3.10+
+* `pip`
+* `pip-audit`
+* LLM API access for AI reasoning
 
-- docs/MILESTONE_1.md
-- docs/MILESTONE_2.md
-- docs/MILESTONE_3.md
-
-
-# ✅ Current Features
-
-## Dependency Analyzer
-
-Checks Python dependency manifests.
-
-Supported:
-
-- `requirements.txt`
-- `pyproject.toml`
+The deterministic analysis engine works without an LLM API key.
 
 ---
 
-## Environment Analyzer
+## 🚀 Setup
 
-Detects deployment configuration issues.
-
-Checks for:
-
-- Missing `.env`
-- Missing `.env.example`
-- Python environment variable usage
-
----
-
-## Secret Scanner
-
-Detects hardcoded secrets including:
-
-- AWS Access Keys
-- AWS Secret Keys
-- GitHub Tokens
-- Generic API Keys
-- Password assignments
-- JWT Tokens
-- Private Keys
-
-Also checks whether:
-
-- `.env` is excluded from `.gitignore`
-
-Reports:
-
-- File path
-- Line number
-
----
-
-## Vulnerability Scanner
-
-Uses **pip-audit** to identify vulnerable Python packages.
-
-Reports:
-
-- Vulnerable package
-- Installed version
-- Vulnerability ID
-- Recommended fixed version
-
----
-
-## VS Code Dashboard
-
-Displays:
-
-- Overall Risk
-- Total Findings
-- High Findings
-- Medium Findings
-- Low Findings
-- File Locations
-- Line Numbers
-- Recommendations
-
----
-
-# 🛠️ Tech Stack
-
-## VS Code Extension
-
-- TypeScript
-- VS Code Extension API
-
-## Analysis Engine
-
-- Python 3.10+
-- pip-audit
-- JSON
-- Child Process Communication
-
----
-
-# 🚀 Getting Started
-
-## Clone the Repository
+### 1. Clone the repository
 
 ```bash
-git clone https://github.com/OopsNidhiCodes/deploy-risk-checker.git
+git clone <repository-url>
+cd deploy-risk-checker
 ```
 
----
-
-## Install Extension Dependencies
+### 2. Install extension dependencies
 
 ```bash
 cd extension
 npm install
 ```
 
----
+### 3. Compile the extension
 
-## Create Python Virtual Environment
+```bash
+npm run compile
+```
+
+### 4. Install Python dependencies
+
+From the engine directory:
 
 ```bash
 cd ../engine
-
-python -m venv venv
-```
-
-Activate it.
-
-### Windows
-
-```bash
-venv\Scripts\activate
-```
-
-### Linux/macOS
-
-```bash
-source venv/bin/activate
-```
-
----
-
-## Install Python Dependencies
-
-```bash
 pip install -r requirements.txt
 ```
 
 ---
 
-## Run the Extension
+## 🔑 LLM Configuration
 
-```bash
-cd ../extension
+The LLM reasoning layer requires the configured API key to be available as an environment variable.
 
-npm run watch
+For local development, create an appropriate `.env` file in the engine environment and configure:
+
+```text
+GROQ_API_KEY=your_api_key
 ```
 
-Press **F5** to launch the Extension Development Host.
+**Never commit a real API key to GitHub.**
 
 ---
 
-# 📸 Screenshots
+## ▶️ Running the Extension
 
-Coming Soon...
+Open the project in VS Code and start the extension using the VS Code extension development environment.
 
----
+Run:
 
-# 📈 Project Progress
+```text
+Deploy Risk Checker: Analyze Project
+```
 
-| Milestone | Status |
-|-----------|--------|
-| Milestone 1 – VS Code Extension Setup | ✅ Completed |
-| Milestone 2 – Dependency & Environment Analysis | ✅ Completed |
-| Milestone 3 – Security & Vulnerability Analysis | ✅ Completed |
-| Milestone 4 – AI Risk Analysis | 🚧 Planned |
-| Milestone 5 – Intelligent Deployment Recommendations | 🚧 Planned |
+The extension analyzes the currently opened project and displays the results in the dashboard.
 
 ---
 
-# 🗺️ Future Roadmap
+## 🧪 Testing
 
-Planned features include:
+The project currently contains automated tests covering:
 
-- Docker Analyzer
-- Git Ignore Analyzer
-- Deployment Risk Score
-- AI-powered Risk Analysis
-- HTML/PDF Report Export
-- GitHub Integration
-- Pre-Push Git Hook
-- Marketplace Release
+* Finding model creation.
+* Secret detection.
+* File and line reporting.
+* `.env` protection.
+* Vulnerability detection.
+* Vulnerability scanner timeout handling.
+* Invalid scanner output.
+* Scanner command failures.
+* `pyproject.toml` auditing.
+* LLM reasoning.
+* LLM failure fallback.
+* Unknown finding IDs.
+* Deterministic-only execution.
+
+Run all tests from the repository root:
+
+```bash
+python -m pytest -v
+```
+
+Current test status:
+
+```text
+15 passed
+```
 
 ---
 
-# 📄 License
+## 🔌 Deterministic-Only Mode
 
-This project is licensed under the MIT License.
+The engine can be executed without AI reasoning using:
+
+```bash
+python engine/cli.py <project-path> --no-ai
+```
+
+This mode is useful for:
+
+* Testing deterministic analyzers.
+* Comparing AI-enabled and AI-disabled results.
+* Running the tool without an API key.
+* Verifying that the LLM does not affect detection.
+
+---
+
+## 📈 Development Milestones
+
+### Milestone 1 — VS Code Extension Foundation
+
+Completed.
+
+Established:
+
+* VS Code extension.
+* TypeScript extension entry point.
+* Python analysis engine.
+* Finding model.
+* CLI communication.
+* JSON-based communication.
+* Initial dashboard.
+
+### Milestone 2 — Initial Deployment Analysis
+
+Completed.
+
+Added:
+
+* Dependency analysis.
+* Environment analysis.
+* Risk calculation.
+* Improved dashboard.
+
+### Milestone 3 — Security & Vulnerability Analysis
+
+Completed.
+
+Added:
+
+* Secret scanner.
+* Vulnerability scanner.
+* `pip-audit` integration.
+* File and line reporting.
+* Python-only project scope.
+* Expanded dashboard findings.
+
+### Milestone 4 — LLM Reasoning Layer
+
+Completed.
+
+Added:
+
+* Structured LLM reasoning.
+* Finding prioritization.
+* Plain-English explanations.
+* AI remediation guidance.
+* Overall AI risk summary.
+* Strict deterministic/LLM boundary.
+* Unique finding IDs for AI correlation.
+* Batched reasoning for larger finding sets.
+* AI coverage reporting.
+* Graceful API failure handling.
+* Deterministic-only fallback.
+* `--no-ai` execution mode.
+* Automated reasoning tests.
+
+---
+
+## 🎯 Current Status
+
+```text
+Milestone 1       ✅ Completed
+Milestone 2       ✅ Completed
+Milestone 3       ✅ Completed
+Milestone 4       ✅ Completed
+```
+
+Deploy Risk Checker currently provides a complete pipeline from deterministic deployment-risk detection to optional AI-assisted prioritization and explanation.
+
+The deterministic analyzers remain responsible for detecting risks, while the LLM adds an intelligence layer that makes those findings easier to understand and act upon.

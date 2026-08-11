@@ -80,8 +80,8 @@ def analyze(project_path: str):
     """
 
     findings = []
-
     project = Path(project_path)
+    secret_counter = 0
 
     for file in project.rglob("*"):
 
@@ -110,13 +110,15 @@ def analyze(project_path: str):
 
             for match in pattern.finditer(content):
 
+                secret_counter += 1
+
                 line_number = (
                     content.count("\n", 0, match.start()) + 1
                 )
 
                 findings.append(
                     Finding(
-                        id="SEC001",
+                        id=f"SEC001-{secret_counter}",
                         severity="High",
                         title=FINDING_TITLE,
                         description=f"Possible {secret_name} detected in the source code.",
