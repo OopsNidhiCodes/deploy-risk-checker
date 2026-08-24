@@ -50,12 +50,24 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Resolve engine requirements path
+      id: paths
+      shell: bash
+      run: |
+        set -euo pipefail
+        # github.action_path for a locally-referenced action (uses: ./) can
+        # resolve with a trailing "/." segment. actions/setup-python's
+        # cache-dependency-path glob matcher rejects "." / ".." path
+        # segments outright, so we normalize with cd+pwd before using it,
+        # instead of interpolating the raw expression directly.
+        REQ_PATH="$(cd "${{ github.action_path }}/engine" && pwd)/requirements.txt"
+        echo "requirements-path=$REQ_PATH" >> "$GITHUB_OUTPUT"
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: ${{ inputs.python-version }}
         cache: 'pip'
-        cache-dependency-path: '${{ github.action_path }}/engine/requirements.txt'
+        cache-dependency-path: ${{ steps.paths.outputs.requirements-path }}
 
     - name: Install Deploy Risk Checker engine dependencies
       shell: bash
