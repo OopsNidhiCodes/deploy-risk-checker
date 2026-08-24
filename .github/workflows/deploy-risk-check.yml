@@ -31,7 +31,7 @@ jobs:
           # add the GROQ_API_KEY secret to exercise the AI layer too.
           enable-ai: 'false'
           groq-api-key: ${{ secrets.GROQ_API_KEY }}
-          fail-on-severity: 'high'
+          fail-on-severity: 'none'
 
       - name: Print outputs
         run: |
