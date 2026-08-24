@@ -1,0 +1,48 @@
+name: Deploy Risk Check
+
+# Dogfooding workflow: this repo runs its own Action against its own
+# engine/ folder on every push and PR. This is the exit-criteria test for
+# Milestone 5 — a PR here should trigger the Action and show readable
+# results in the Actions tab.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  risk-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Deploy Risk Checker
+        id: risk-check
+        uses: ./
+        with:
+          scan-path: 'engine'
+          # AI stays off by default here so forked PRs (which don't get
+          # repo secrets) still run cleanly. Flip enable-ai to 'true' and
+          # add the GROQ_API_KEY secret to exercise the AI layer too.
+          enable-ai: 'false'
+          groq-api-key: ${{ secrets.GROQ_API_KEY }}
+          fail-on-severity: 'high'
+
+      - name: Print outputs
+        run: |
+          echo "Summary: ${{ steps.risk-check.outputs.summary }}"
+          echo "High: ${{ steps.risk-check.outputs.high-count }}"
+          echo "Medium: ${{ steps.risk-check.outputs.medium-count }}"
+          echo "Low: ${{ steps.risk-check.outputs.low-count }}"
+
+      - name: Upload full results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-risk-result
+          path: ${{ steps.risk-check.outputs.result-path }}

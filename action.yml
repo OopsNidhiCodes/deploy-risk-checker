@@ -1,0 +1,93 @@
+name: 'Deploy Risk Checker'
+description: 'Pre-deployment risk analysis for Python projects — deterministic static checks plus an optional LLM reasoning layer.'
+author: 'Nidhi'
+
+branding:
+  icon: 'shield'
+  color: 'red'
+
+inputs:
+  scan-path:
+    description: 'Path to the Python project to scan, relative to the repository root.'
+    required: false
+    default: '.'
+  enable-ai:
+    description: 'Whether to run the LLM reasoning layer. Set to "false" to force deterministic-only mode.'
+    required: false
+    default: 'true'
+  groq-api-key:
+    description: 'Groq API key for the AI reasoning layer, passed as a GitHub secret (e.g. ${{ secrets.GROQ_API_KEY }}). If empty, the Action automatically falls back to deterministic-only mode regardless of enable-ai.'
+    required: false
+    default: ''
+  fail-on-severity:
+    description: 'Minimum severity that fails the job: high, medium, low, or none.'
+    required: false
+    default: 'high'
+  python-version:
+    description: 'Python version used to run the engine.'
+    required: false
+    default: '3.11'
+
+outputs:
+  summary:
+    description: 'One-line human-readable summary of the scan (e.g. "3 finding(s) — 1 high, 1 medium, 1 low").'
+    value: ${{ steps.summarize.outputs.summary }}
+  finding-count:
+    description: 'Total number of findings.'
+    value: ${{ steps.summarize.outputs.finding-count }}
+  high-count:
+    description: 'Number of High severity findings.'
+    value: ${{ steps.summarize.outputs.high-count }}
+  medium-count:
+    description: 'Number of Medium severity findings.'
+    value: ${{ steps.summarize.outputs.medium-count }}
+  low-count:
+    description: 'Number of Low severity findings.'
+    value: ${{ steps.summarize.outputs.low-count }}
+  result-path:
+    description: 'Absolute path to the full JSON results file, for use in later steps (e.g. upload-artifact).'
+    value: ${{ steps.scan.outputs.result-path }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache: 'pip'
+        cache-dependency-path: '${{ github.action_path }}/engine/requirements.txt'
+
+    - name: Install Deploy Risk Checker engine dependencies
+      shell: bash
+      run: pip install -r "${{ github.action_path }}/engine/requirements.txt"
+
+    - name: Run Deploy Risk Checker
+      id: scan
+      shell: bash
+      env:
+        GROQ_API_KEY: ${{ inputs.groq-api-key }}
+      run: |
+        set -euo pipefail
+
+        SCAN_TARGET="${GITHUB_WORKSPACE}/${{ inputs.scan-path }}"
+        RESULT_PATH="${RUNNER_TEMP}/deploy-risk-result.json"
+
+        AI_FLAG=""
+        if [ "${{ inputs.enable-ai }}" != "true" ] || [ -z "${{ inputs.groq-api-key }}" ]; then
+          AI_FLAG="--no-ai"
+        fi
+
+        # cli.py prints the JSON result to stdout and logs to stderr, so a
+        # plain redirect is enough — nothing else pollutes the file.
+        python "${{ github.action_path }}/engine/cli.py" "$SCAN_TARGET" $AI_FLAG > "$RESULT_PATH"
+
+        echo "result-path=$RESULT_PATH" >> "$GITHUB_OUTPUT"
+
+    - name: Summarize findings
+      id: summarize
+      shell: bash
+      run: |
+        python "${{ github.action_path }}/engine/summarize_findings.py" \
+          "${{ steps.scan.outputs.result-path }}" \
+          --fail-on "${{ inputs.fail-on-severity }}"
