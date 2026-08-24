@@ -2,6 +2,9 @@ import os
 import time
 import logging
 
+from groq import GroqError, RateLimitError, APIConnectionError
+from pydantic import ValidationError
+
 from .schema import FindingSummary
 from .llm_client import call_groq
 
@@ -9,7 +12,18 @@ logger = logging.getLogger("deploy_risk_checker.reasoning")
 
 BATCH_SIZE = 15  # keeps each request comfortably under the 8000 TPM free-tier cap
 BATCH_PACING_SECONDS = 5  # buffer between batches so cumulative usage stays safe
-RATE_LIMIT_RETRY_WAIT = 20
+
+MAX_ATTEMPTS = 3  # 1 initial attempt + 2 retries
+BASE_BACKOFF_SECONDS = 5
+MAX_BACKOFF_SECONDS = 30
+
+# Failures we know how to interpret and recover from: the Groq SDK's own error
+# hierarchy (auth, rate limit, connection, bad status...) and Pydantic
+# validation failures when a response doesn't match ReasoningResult's schema.
+# Anything outside this tuple is a real bug, not "the LLM had a bad day" —
+# it is deliberately NOT caught here so it surfaces instead of being silently
+# relabeled as an AI outage. cli.py holds the last-resort safety net.
+EXPECTED_LLM_ERRORS = (GroqError, ValidationError, ValueError)
 
 
 def _chunks(items, size):
@@ -17,26 +31,52 @@ def _chunks(items, size):
         yield items[i : i + size]
 
 
-def _is_rate_limit_error(exc: Exception) -> bool:
-    msg = str(exc).lower()
-    return "rate_limit" in msg or "429" in msg or "413" in msg
+def _is_retryable(exc: Exception) -> bool:
+    """Only retry failures that a second attempt could plausibly fix.
+
+    RateLimitError (429) and connection/timeout errors are transient.
+    Everything else (bad request, auth failure, a response that fails
+    schema validation, a 413 payload-too-large from an oversized batch)
+    will fail again identically on retry, so we don't waste time on it.
+    """
+    return isinstance(exc, (RateLimitError, APIConnectionError))
+
+
+def _retry_after_seconds(exc: Exception):
+    """Honor the server's Retry-After header when Groq provides one."""
+    response = getattr(exc, "response", None)
+    if response is None:
+        return None
+    header = response.headers.get("retry-after")
+    if header is None:
+        return None
+    try:
+        return float(header)
+    except (TypeError, ValueError):
+        return None
 
 
 def _call_with_retry(batch_summaries, api_key):
-    try:
-        return call_groq(batch_summaries, api_key=api_key)
-    except Exception as e:
-        if _is_rate_limit_error(e):
+    last_exc = None
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        try:
+            return call_groq(batch_summaries, api_key=api_key)
+        except EXPECTED_LLM_ERRORS as e:
+            last_exc = e
+            if not _is_retryable(e) or attempt == MAX_ATTEMPTS:
+                raise
+            wait = _retry_after_seconds(e)
+            if wait is None:
+                wait = min(BASE_BACKOFF_SECONDS * (2 ** (attempt - 1)), MAX_BACKOFF_SECONDS)
             logger.warning(
-                "Rate limited, waiting %ds and retrying this batch once: %s",
-                RATE_LIMIT_RETRY_WAIT,
+                "Retryable error on attempt %d/%d, waiting %.0fs before retrying: %s",
+                attempt,
+                MAX_ATTEMPTS,
+                wait,
                 e,
             )
-            time.sleep(RATE_LIMIT_RETRY_WAIT)
-            return call_groq(
-                batch_summaries, api_key=api_key
-            )  # a second failure propagates normally
-        raise
+            time.sleep(wait)
+    raise last_exc  # pragma: no cover -- loop above always returns or raises first
 
 
 def enhance(findings: list) -> dict:
@@ -78,9 +118,12 @@ def enhance(findings: list) -> dict:
 
         try:
             result = _call_with_retry(batch_summaries, api_key)
-        except Exception as e:
+        except EXPECTED_LLM_ERRORS as e:
+            # A known/expected failure mode (auth, rate limit, malformed
+            # response, etc). That batch stays deterministic-only; the rest
+            # of the run continues.
             logger.warning(
-                "Groq reasoning failed for a batch, that batch stays deterministic-only: %s",
+                "AI reasoning failed for a batch, that batch stays deterministic-only: %s",
                 e,
             )
             last_error = str(e)

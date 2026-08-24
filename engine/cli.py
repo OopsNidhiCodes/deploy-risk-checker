@@ -1,5 +1,6 @@
 import sys
 import json
+import logging
 import argparse
 
 from analyzers import dependency
@@ -12,6 +13,13 @@ try:
     load_dotenv()
 except ImportError:
     pass
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s %(name)s: %(message)s",
+    stream=sys.stderr,
+)
+logger = logging.getLogger("deploy_risk_checker.cli")
 
 
 def detect_project_type(path):
@@ -53,7 +61,26 @@ def main():
     if args.no_ai:
         ai_meta = {"ai_enabled": False, "ai_summary": None, "ai_error": None, "ai_coverage": None}
     else:
-        ai_meta = reasoner.enhance(findings)
+        try:
+            ai_meta = reasoner.enhance(findings)
+        except Exception as e:
+            # reasoner.enhance() only catches known/expected LLM failure modes
+            # (auth, rate limit, malformed response, etc) internally — this
+            # is the last-resort net for anything else (a real bug). It's
+            # logged at ERROR with a full traceback, not WARNING, precisely
+            # so it doesn't get mistaken for routine API flakiness.
+            logger.error(
+                "Unexpected error in AI reasoning layer — falling back to "
+                "deterministic-only output: %s",
+                e,
+                exc_info=True,
+            )
+            ai_meta = {
+                "ai_enabled": False,
+                "ai_summary": None,
+                "ai_error": f"Unexpected error: {e}",
+                "ai_coverage": None,
+            }
 
     result = {
         "project_types": detect_project_type(args.project_path),
