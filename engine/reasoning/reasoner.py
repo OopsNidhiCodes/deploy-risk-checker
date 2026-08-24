@@ -18,12 +18,18 @@ BASE_BACKOFF_SECONDS = 5
 MAX_BACKOFF_SECONDS = 30
 
 # Failures we know how to interpret and recover from: the Groq SDK's own error
-# hierarchy (auth, rate limit, connection, bad status...) and Pydantic
-# validation failures when a response doesn't match ReasoningResult's schema.
+# hierarchy (auth, rate limit, connection, bad status...), Pydantic validation
+# failures when a response doesn't match ReasoningResult's schema, and raw
+# built-in TimeoutError. That last one matters because groq.APITimeoutError
+# (an SDK-wrapped timeout, already covered via GroqError below) isn't the only
+# way a timeout can surface — a low-level socket/OS timeout can occasionally
+# leak through before the SDK's own exception translation gets a chance to
+# wrap it. Both represent "the network had a bad day", not a bug in this
+# codebase, so both should degrade gracefully instead of crashing the scan.
 # Anything outside this tuple is a real bug, not "the LLM had a bad day" —
 # it is deliberately NOT caught here so it surfaces instead of being silently
 # relabeled as an AI outage. cli.py holds the last-resort safety net.
-EXPECTED_LLM_ERRORS = (GroqError, ValidationError, ValueError)
+EXPECTED_LLM_ERRORS = (GroqError, ValidationError, ValueError, TimeoutError)
 
 
 def _chunks(items, size):
