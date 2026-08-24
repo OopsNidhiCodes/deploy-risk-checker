@@ -16,8 +16,7 @@ inputs:
     required: false
     default: 'true'
   groq-api-key:
-    description: 'Groq API key for the AI reasoning layer, passed as a GitHub secret (e.g. ${{ secrets.GROQ_API_KEY }}). If empty, the Action automatically falls back to deterministic-only mode regardless of enable-ai.'
-    required: false
+    description: 'Groq API key for the AI reasoning layer, passed as a GitHub secret from the calling workflow (e.g. secrets.GROQ_API_KEY). If empty, the Action automatically falls back to deterministic-only mode regardless of enable-ai.'
     default: ''
   fail-on-severity:
     description: 'Minimum severity that fails the job: high, medium, low, or none.'
