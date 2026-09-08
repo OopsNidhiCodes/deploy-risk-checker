@@ -245,10 +245,14 @@ accidentally slow.
 
 ## 12. End-to-End Validation
 
-The Action was validated against a real push and a real GitHub Actions run
-on the project's own repository, scanning `engine/` as the target.
+The Action was validated against two real GitHub Actions runs on the
+project's own repository — one on a direct push, one on an actual pull
+request — since GitHub only exercises some behavior (inline file+line
+annotations) on `pull_request`-triggered runs specifically.
 
-The run produced:
+### 12.1 Push-Triggered Run
+
+Scanning `engine/` as the target, the push-triggered run produced:
 
 ```text
 Found 5 finding(s): 1 High · 4 Medium · 0 Low
@@ -266,7 +270,7 @@ genuinely absent from a clean CI checkout. This is exactly the class of
 deployment risk the tool is meant to catch — a project that depends on a
 local-only file would fail in a fresh deployment environment too.
 
-Confirmed on the real run:
+Confirmed on this run:
 
 * The Job Summary rendered the markdown table correctly.
 * Annotation counts matched exactly: 3 errors (1 High finding, the script's
@@ -275,6 +279,52 @@ Confirmed on the real run:
   notice).
 * `fail-on-severity: high` correctly failed the build.
 * The JSON results file uploaded successfully as a workflow artifact.
+
+### 12.2 Pull-Request-Triggered Run — Closing the Final Exit Criterion
+
+A push-only run cannot confirm inline annotations against a specific file
+and line, because GitHub only renders those on the PR "Files changed" tab
+for `pull_request`-triggered runs. To close this gap, a dedicated test
+branch (`test-pr-trigger`) added one fixture file,
+`engine/tests_pr_trigger_fixture.py`, containing AWS's own public example
+access key (`AKIAIOSFODNN7EXAMPLE`, not a real credential) so the secret
+scanner would produce a finding with a concrete `file_path` and
+`line_number`, then opened a real PR (`#1`) against `main`.
+
+The PR run produced:
+
+```text
+Found 6 finding(s): 2 High · 4 Medium · 0 Low
+
+ENV001    High    Missing .env File
+SEC001-1  High    Hardcoded Secret Detected   tests_pr_trigger_fixture.py:18
+ENV002    Medium  Missing .env.example
+VUL_requests_PYSEC-2026-1873  Medium  Vulnerable Dependency
+VUL_requests_PYSEC-2026-1872  Medium  Vulnerable Dependency
+VUL_requests_PYSEC-2026-2275  Medium  Vulnerable Dependency
+```
+
+Confirmed on this run:
+
+* The `Checks` tab showed the job specifically as `risk-check (pull_request)`,
+  confirming the `pull_request` trigger (not just `push`) fired the Action.
+* The Job Summary rendered the same markdown table format correctly in a
+  PR context.
+* `SEC001-1` rendered as an inline annotation anchored to
+  `tests_pr_trigger_fixture.py#L18` — the specific PR "Files changed"
+  behavior a push-only run cannot exercise.
+* Annotation counts matched exactly: 2 errors (the two High findings) and
+  5 warnings (4 Medium findings plus the Node.js 20 deprecation notice).
+* The JSON results file uploaded successfully as a workflow artifact on the
+  PR run as well.
+
+This run's workflow file carried a temporary `fail-on-severity: 'none'`
+override, left over from an earlier report-only screenshot, so this
+specific run reported as passed despite the two High findings — that part
+of the pass/fail behavior was already independently confirmed on the push
+run in 12.1. Immediately after merging PR #1, a follow-up commit on `main`
+restored `fail-on-severity: 'high'` and removed the now-unneeded fixture
+file, so the default policy documented in Section 5 is what ships.
 
 ---
 
@@ -298,10 +348,9 @@ Confirmed on the real run:
 
 ### Test Against a Real Workflow File on Push/PR
 
-**Status: Completed** — validated on push; a pull-request-triggered run is
-the one remaining verification step, since annotations that target a
-specific file and line (as opposed to project-level findings) render on the
-PR "Files changed" tab specifically, which a push-only run cannot exercise.
+**Status: Completed** — validated on both a push-triggered run (12.1) and a
+pull-request-triggered run via PR #1 (12.2), including the PR-specific
+inline file+line annotation behavior that a push-only run cannot exercise.
 
 ### Readable Results in the Actions Tab
 
@@ -401,7 +450,10 @@ single source of truth for what counts as a risk.
 
 Two infrastructure bugs and one deterministic-analyzer bug were found and
 resolved specifically because Milestone 5 required validation against a
-real GitHub Actions runner rather than local simulation alone. This
-reinforces the project's broader engineering pattern, consistent since
-Milestone 4: failures are treated as expected, handled explicitly, and
-verified against real external systems rather than assumed away.
+real GitHub Actions runner rather than local simulation alone. Validation
+was carried through both trigger types the Action supports — push and pull
+request — since PR-specific behavior (inline file+line annotations) is not
+observable on a push-only run. This reinforces the project's broader
+engineering pattern, consistent since Milestone 4: failures are treated as
+expected, handled explicitly, and verified against real external systems
+rather than assumed away.

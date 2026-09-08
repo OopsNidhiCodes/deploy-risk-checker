@@ -1,6 +1,9 @@
 # 🚀 Deploy Risk Checker
 
-Deploy Risk Checker is a **Visual Studio Code extension** that analyzes Python projects for deployment, configuration, security, dependency, and vulnerability risks before deployment or code push.
+Deploy Risk Checker analyzes Python projects for deployment, configuration, security, dependency, and vulnerability risks before deployment or code push. It ships as two distribution surfaces built on the same engine:
+
+* A **Visual Studio Code extension**, for interactive analysis during development.
+* A **GitHub Action**, for automatic analysis on every push and pull request.
 
 It combines a deterministic Python analysis engine with an optional **LLM reasoning layer** that prioritizes detected risks, explains their impact in plain English, and provides improved remediation guidance.
 
@@ -83,6 +86,48 @@ If the LLM is unavailable, the deterministic analysis continues to work normally
 
 ---
 
+## 🔁 GitHub Action (CI Automation)
+
+Milestone 5 adds a second distribution surface: a GitHub Action that runs
+the same deterministic-plus-AI engine automatically on every push and pull
+request, instead of relying on a developer to run the extension manually.
+
+The Action is a composite action (no Docker, since the engine is pure
+Python) and wraps the existing `engine/cli.py` in a CI-facing shell:
+
+* Configurable inputs — `scan-path`, `enable-ai`, `groq-api-key`,
+  `fail-on-severity`, `python-version`.
+* Configurable outputs — `summary`, `finding-count`, `high-count`,
+  `medium-count`, `low-count`, `result-path`.
+* A markdown table rendered in the GitHub **Job Summary**.
+* Inline `::error` / `::warning` / `::notice` annotations, so findings with
+  a known file and line surface directly on a PR's "Files changed" tab.
+* A configurable pass/fail policy (`fail-on-severity`) that sets the
+  Action's exit code — this is what actually fails the CI check.
+* Automatic AI fallback: if `enable-ai` is off or no API key is supplied
+  (e.g. a forked PR with no access to repo secrets), the engine runs in
+  `--no-ai` mode instead of failing the job.
+
+No detection logic is duplicated between the VS Code extension and the
+GitHub Action — both call the same `engine/cli.py`.
+
+### Using it in your own workflow
+
+```yaml
+- name: Run Deploy Risk Checker
+  uses: ./  # or a published marketplace reference
+  with:
+    scan-path: 'engine'
+    enable-ai: 'false'
+    fail-on-severity: 'high'
+```
+
+See `docs/MILESTONE_5.md` for the full architecture, pass/fail policy
+table, and real-world validation evidence (both push- and
+pull-request-triggered runs).
+
+---
+
 ## 🧠 AI Safety Boundary
 
 The deterministic engine remains the source of truth.
@@ -141,49 +186,57 @@ The dashboard also distinguishes between deterministic-only and AI-enhanced anal
 ## 🏗️ Architecture
 
 ```text
-                    VS Code
-                       │
-                       ▼
-              Analyze Project Command
-                       │
-                       ▼
-              extension/src/extension.ts
-                       │
-                       ▼
-                  engine/cli.py
-                       │
-        ┌──────────────┼──────────────┐
-        ▼              ▼              ▼
- Dependency       Environment     Secret Scanner
- Analyzer          Analyzer            │
-        │              │               │
-        └──────────────┼───────────────┘
-                       │
-                       ▼
-              Vulnerability Scanner
-                       │
-                       ▼
-                 Finding Objects
-                       │
-                       ▼
-                 Findings JSON
-                       │
-                       ▼
-              LLM Reasoning Layer
-                       │
-              ┌────────┴────────┐
-              ▼                 ▼
-        AI Available       AI Unavailable
-              │                 │
-              ▼                 ▼
-       Prioritization      Deterministic
-       Explanation          Findings
-       Remediation              │
-              │                 │
-              └────────┬────────┘
-                       ▼
-                VS Code WebView
-                    Dashboard
+                    VS Code                          GitHub
+                       │                                │
+                       ▼                                ▼
+              Analyze Project                    push / pull_request
+                       │                                │
+                       ▼                                ▼
+              extension.ts                         action.yml
+                       │                                │
+                       └───────────────┬────────────────┘
+                                        ▼
+                                    cli.py
+                                        │
+                ┌───────────────────────┼───────────────────────┐
+                ▼                       ▼                       ▼
+         Dependency               Environment             Secret Scanner
+          Analyzer                 Analyzer
+                │                       │                       │
+                └───────────────────────┼───────────────────────┘
+                                        ▼
+                              Vulnerability Scanner
+                                        │
+                                        ▼
+                                Finding Objects
+                                        │
+                                        ▼
+                                 Findings JSON
+                                        │
+                                        ▼
+                               Reasoning Layer
+                                        │
+                               ┌────────┴────────┐
+                               │                 │
+                          LLM Available      LLM Failure
+                               │                 │
+                               ▼                 ▼
+                        AI Reasoning        Deterministic
+                               │              Fallback
+                               ▼                 │
+                      Priority + Explanation      │
+                        + Remediation             │
+                               │                 │
+                               └────────┬────────┘
+                                        ▼
+                                  Final JSON
+                        ┌───────────────┴───────────────┐
+                        ▼                                ▼
+                VS Code WebView                summarize_findings.py
+                    Dashboard                            │
+                                             ┌────────────┼────────────┐
+                                             ▼            ▼            ▼
+                                       Job Summary   Annotations   Exit Code
 ```
 
 ---
@@ -193,11 +246,16 @@ The dashboard also distinguishes between deterministic-only and AI-enhanced anal
 ```text
 deploy-risk-checker/
 │
+├── .github/
+│   └── workflows/
+│       └── deploy-risk-check.yml
+│
 ├── docs/
 │   ├── MILESTONE_1.md
 │   ├── MILESTONE_2.md
 │   ├── MILESTONE_3.md
-│   └── MILESTONE_4.md
+│   ├── MILESTONE_4.md
+│   └── MILESTONE_5.md
 │
 ├── engine/
 │   ├── analyzers/
@@ -217,6 +275,7 @@ deploy-risk-checker/
 │   │   └── schema.py
 │   │
 │   ├── cli.py
+│   ├── summarize_findings.py
 │   └── requirements.txt
 │
 ├── extension/
@@ -231,6 +290,7 @@ deploy-risk-checker/
 │   ├── test_vulnerability.py
 │   └── test_reasoner.py
 │
+├── action.yml
 ├── README.md
 └── LICENSE
 ```
@@ -421,6 +481,28 @@ Added:
 * `--no-ai` execution mode.
 * Automated reasoning tests.
 
+### Milestone 5 — GitHub Action (Automation Layer)
+
+Completed.
+
+Added:
+
+* `action.yml` composite GitHub Action wrapping the existing engine.
+* Configurable inputs (`scan-path`, `enable-ai`, `groq-api-key`,
+  `fail-on-severity`, `python-version`).
+* Configurable outputs (`summary`, finding counts by severity,
+  `result-path`).
+* `summarize_findings.py` — a CI-facing results processor that renders the
+  GitHub Job Summary, emits inline PR annotations, writes step outputs, and
+  decides pass/fail for the build.
+* Automatic AI fallback for forked PRs with no access to repo secrets.
+* A dogfooding workflow (`.github/workflows/deploy-risk-check.yml`) that
+  runs the Action against the project's own `engine/` folder on every push
+  and pull request.
+* Validated against real GitHub Actions runs on both trigger types — push
+  and pull request — including the PR-specific inline file+line annotation
+  behavior on the "Files changed" tab.
+
 ---
 
 ## 🎯 Current Status
@@ -430,8 +512,9 @@ Milestone 1       ✅ Completed
 Milestone 2       ✅ Completed
 Milestone 3       ✅ Completed
 Milestone 4       ✅ Completed
+Milestone 5       ✅ Completed
 ```
 
-Deploy Risk Checker currently provides a complete pipeline from deterministic deployment-risk detection to optional AI-assisted prioritization and explanation.
+Deploy Risk Checker currently provides a complete pipeline from deterministic deployment-risk detection to optional AI-assisted prioritization and explanation — reachable both interactively, in the VS Code editor, and automatically, as a GitHub Action in CI.
 
-The deterministic analyzers remain responsible for detecting risks, while the LLM adds an intelligence layer that makes those findings easier to understand and act upon.
+The deterministic analyzers remain responsible for detecting risks, while the LLM adds an intelligence layer that makes those findings easier to understand and act upon. The GitHub Action makes that same pipeline part of every push and pull request, without requiring a developer to remember to run it manually.
