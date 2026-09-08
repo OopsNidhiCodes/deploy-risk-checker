@@ -8,6 +8,19 @@ IGNORED_DIRS = {
     ".venv",
     "node_modules",
     "dist",
+    # Incidental os.getenv/dotenv usage in test fixtures, example scripts,
+    # or documentation doesn't mean the project itself, as a deployable
+    # unit, needs a .env file — a library can legitimately contain a test
+    # or usage example that reads an env var without the library itself
+    # requiring one. Excluding these avoids flagging libraries (which
+    # aren't deployed the way an application is) based on incidental
+    # matches outside the actual application code.
+    "test",
+    "tests",
+    "example",
+    "examples",
+    "doc",
+    "docs",
 }
 def analyze(project_path: str):
     findings = []
