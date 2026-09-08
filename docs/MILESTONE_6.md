@@ -174,7 +174,11 @@ section, dual-surface architecture diagram, and current project structure.
 
 ### Usage docs for extension and Action
 
-**Status: Not started**
+**Status: Completed** — `docs/USAGE.md` added: full GitHub Action
+inputs/outputs reference, a copy-pasteable sample workflow, a guide to
+choosing a `fail-on-severity` value, and an honest from-source usage guide
+for the extension (packaging/Marketplace distribution is a separate,
+not-yet-completed step below).
 
 ### Package extension with `vsce package`; Marketplace vs `.vsix`
 

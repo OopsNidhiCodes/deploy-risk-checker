@@ -20,6 +20,12 @@ yarn-error.log*
 dist/
 out/
 
+# Bundled engine copy (generated at package time by
+# extension/scripts/bundle-engine.js — engine/ at the repo root is the
+# single source of truth)
+extension/engine/
+extension/*.vsix
+
 # OS files
 .DS_Store
 Thumbs.db
@@ -38,3 +44,7 @@ Thumbs.db
 # Coverage
 .coverage
 htmlcov/
+
+# Stray local analysis output (accidentally committed once via a
+# PowerShell `>` redirect — never meant to be tracked)
+engine/result.json

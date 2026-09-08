@@ -1,8 +1,15 @@
 {
   "name": "deploy-risk-checker",
   "displayName": "Deploy Risk Checker",
-  "description": "Analyze projects for deployment risks before pushing code.",
-  "version": "0.0.1",
+  "description": "Analyze Python projects for deployment, configuration, security, dependency, and vulnerability risks before deployment or code push.",
+  "version": "0.1.0",
+  "publisher": "oopsnidhicodes",
+  "license": "MIT",
+  "icon": "icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OopsNidhiCodes/deploy-risk-checker.git"
+  },
   "engines": {
     "vscode": "^1.125.0"
   },
@@ -22,7 +29,7 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run package",
+    "vscode:prepublish": "npm run bundle-engine && npm run package",
     "compile": "npm run check-types && npm run lint && node esbuild.js",
     "watch": "npm-run-all -p watch:*",
     "watch:esbuild": "node esbuild.js --watch",
@@ -33,7 +40,8 @@
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "bundle-engine": "node scripts/bundle-engine.js"
   },
   "devDependencies": {
     "@types/vscode": "^1.125.0",

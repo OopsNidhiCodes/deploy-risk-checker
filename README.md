@@ -115,15 +115,16 @@ GitHub Action — both call the same `engine/cli.py`.
 
 ```yaml
 - name: Run Deploy Risk Checker
-  uses: ./  # or a published marketplace reference
+  uses: OopsNidhiCodes/deploy-risk-checker@main
   with:
-    scan-path: 'engine'
-    enable-ai: 'false'
+    scan-path: '.'
     fail-on-severity: 'high'
 ```
 
-See `docs/MILESTONE_5.md` for the full architecture, pass/fail policy
-table, and real-world validation evidence (both push- and
+See `docs/USAGE.md` for the full inputs/outputs reference, a guide to
+choosing a `fail-on-severity` value, and enabling the AI reasoning layer
+via a repository secret. See `docs/MILESTONE_5.md` for the underlying
+architecture and real-world validation evidence (both push- and
 pull-request-triggered runs).
 
 ---
@@ -312,6 +313,11 @@ The deterministic analysis engine works without an LLM API key.
 ---
 
 ## 🚀 Setup
+
+This section covers running the extension from source for development.
+For the full usage guide — GitHub Action configuration, choosing a
+`fail-on-severity` policy, and everyday extension usage once it's
+running — see `docs/USAGE.md`.
 
 ### 1. Clone the repository
 

@@ -1,71 +1,72 @@
-# deploy-risk-checker README
+# Deploy Risk Checker
 
-This is the README for your extension "deploy-risk-checker". After writing up a brief description, we recommend including the following sections.
+Analyze Python projects for deployment, configuration, security,
+dependency, and vulnerability risks — before you push or deploy.
+
+Deploy Risk Checker combines a deterministic Python analysis engine with
+an optional AI reasoning layer that prioritizes findings, explains their
+impact in plain English, and improves remediation guidance. The AI layer
+never invents findings — deterministic analyzers remain the source of
+truth for everything detected.
+
+This same engine also ships as a [GitHub Action](https://github.com/OopsNidhiCodes/deploy-risk-checker),
+for automatic scanning on every push and pull request.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+- **Dependency Analyzer** — missing `requirements.txt` / `pyproject.toml`.
+- **Environment Analyzer** — missing `.env`, missing `.env.example`,
+  insecure environment configuration.
+- **Secret Scanner** — hardcoded credentials: AWS keys, GitHub tokens,
+  generic API keys/passwords, JWTs, private key headers, and `.env` files
+  not covered by `.gitignore`.
+- **Vulnerability Scanner** — known-vulnerable dependencies, via
+  `pip-audit`.
+- **AI Reasoning Layer** *(optional)* — prioritizes findings, explains
+  their real-world impact, and improves remediation guidance. Falls back
+  to deterministic-only results automatically if no API key is
+  configured, or if the API is unreachable.
 
-For example if there is an image subfolder under your extension project workspace:
+## Usage
 
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+1. Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`).
+2. Run **Deploy Risk Checker: Analyze Project**.
+3. Results open in a dashboard: overall risk, severity counts, each
+   finding's file/line and recommendation, and — if AI reasoning is
+   configured — a prioritized explanation per finding.
 
 ## Requirements
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+- Python 3.10+ and `pip` available on your `PATH`.
+- `pip-audit` (installed automatically as part of the engine's own
+  dependencies).
 
-## Extension Settings
+## AI Reasoning Configuration (Optional)
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+To enable AI-assisted prioritization and explanations, create a `.env`
+file inside the extension's bundled `engine/` directory:
 
-For example:
+```text
+GROQ_API_KEY=your_api_key
+```
 
-This extension contributes the following settings:
+No configuration is needed to use the extension without AI — it runs in
+deterministic-only mode automatically if no key is present.
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+## Known Limitations
 
-## Known Issues
+- Python projects only — there is no partial support for other
+  languages; this was a deliberate scope decision (see the main project's
+  `docs/PROJECT_ARCHITECTURE.md`).
+- The environment-variable heuristic (`ENV001`/`ENV002`) can produce a
+  false positive for library projects that *offer* `.env`-loading as a
+  feature for their own users, rather than consuming one themselves — see
+  `docs/MILESTONE_6.md` in the main repository for a documented example
+  and why it's an open, deliberately deferred limitation rather than a
+  quick patch.
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+## More Information
 
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+Full documentation — architecture, the GitHub Action, and the complete
+usage guide — lives in the main repository:
+[github.com/OopsNidhiCodes/deploy-risk-checker](https://github.com/OopsNidhiCodes/deploy-risk-checker)

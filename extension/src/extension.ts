@@ -18,7 +18,7 @@ export function activate(context: vscode.ExtensionContext) {
             }
 
             const projectPath = workspaceFolders[0].uri.fsPath;
-            const enginePath = context.asAbsolutePath("../engine/cli.py");
+            const enginePath = resolveEnginePath(context);
             const pythonPath = resolvePythonInterpreter(context);
 
             execFile(
@@ -27,6 +27,17 @@ export function activate(context: vscode.ExtensionContext) {
                 (error, stdout, stderr) => {
 
                     if (error) {
+
+                        if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+                            vscode.window.showErrorMessage(
+                                `Deploy Risk Checker couldn't find a Python interpreter ` +
+                                `("${pythonPath}" is not on PATH). Install Python 3.10+ ` +
+                                `and make sure it's available as "python" or "python3", ` +
+                                `then run "pip install -r requirements.txt" inside the ` +
+                                `extension's engine directory.`
+                            );
+                            return;
+                        }
 
                         vscode.window.showErrorMessage(
                             stderr || error.message || "Analysis failed."
@@ -76,9 +87,29 @@ export function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() { }
 
+function resolveEngineDir(context: vscode.ExtensionContext): string {
+
+    // Packaged installs bundle engine/ directly inside the extension's own
+    // folder (see extension/scripts/bundle-engine.js, run at package time).
+    // Dev mode (F5, Extension Development Host) runs straight from the
+    // repo checkout, where engine/ is a sibling of extension/ instead —
+    // fall back to that if no bundled copy is found.
+    const bundled = context.asAbsolutePath("engine");
+
+    if (fs.existsSync(bundled)) {
+        return bundled;
+    }
+
+    return context.asAbsolutePath(path.join("..", "engine"));
+}
+
+function resolveEnginePath(context: vscode.ExtensionContext): string {
+    return path.join(resolveEngineDir(context), "cli.py");
+}
+
 function resolvePythonInterpreter(context: vscode.ExtensionContext): string {
 
-    const engineDir = context.asAbsolutePath(path.join("..", "engine"));
+    const engineDir = resolveEngineDir(context);
 
     const venvPython = process.platform === "win32"
         ? path.join(engineDir, "venv", "Scripts", "python.exe")
@@ -88,8 +119,11 @@ function resolvePythonInterpreter(context: vscode.ExtensionContext): string {
         return venvPython;
     }
 
-    // Fallback if no venv is found (e.g. fresh clone before setup).
-    // pip-audit and other dependencies must be installed globally.
+    // Fallback if no venv is found — this is always the path for a
+    // packaged install (no venv is ever bundled; the engine relies on
+    // the end user's own Python and `pip install -r requirements.txt`,
+    // matching what the docs already ask users to set up), and also
+    // covers a fresh dev clone before a local venv has been created.
     if (process.platform !== "win32") {
         return "python3";
     }
